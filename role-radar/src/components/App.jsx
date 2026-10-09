@@ -1,3 +1,6 @@
+import Cartao from './Cartao';
+import Creditos from './Creditos';
+
 const estiloSubtitulo = {
   color: '#626a78',
   textAlign: 'center',
@@ -16,6 +19,7 @@ function Cabecalho() {
       <p style={estiloSubtitulo}>
         Descubra o que existe perto de você
       </p>
+      <Creditos />
     </header>
   );
 }
@@ -30,9 +34,11 @@ export default function App() {
     <>
       <Cabecalho />
       <main>
-        <p>Encontre rolês perto de você.</p>
+        <p>Descubra os rolês perto de você.</p>
       </main>
+      
       <Rodape />
+      <Cartao />
     </>
   );
 }
