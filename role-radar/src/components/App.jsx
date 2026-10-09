@@ -1,9 +1,14 @@
+import { Component } from 'react';
 import Cartao from './Cartao';
 import Creditos from './Creditos';
 import Loading from './Loading';
 import MeuPonto from './MeuPonto';
+import Busca from './Busca';
+import ListaLugares from './ListaLugares';
+import MapaRadar from './MapaRadar';
+import geoapifyClient from '../utils/geoapifyClient';
 
-export default class MeuPonto extends Component {
+export default class App extends Component {
   state = {
     latitude: null,
     longitude: null,
@@ -16,15 +21,35 @@ export default class MeuPonto extends Component {
   };
 
   componentDidMount() {
-    this.timer = setInterval(
-      () => this.setState({ agora: Date.now() }),
-      1000,
-    );
+    console.log('componentDidMount')
+    this.obterLocalizacao();
   }
 
-  componentWillUnmount() {
-    clearInterval(this.timer);
-  }
+  obterLocalizacao = () => {
+    if (!navigator.geolocation) {
+      return this.setState({
+        mensagemDeErro:
+          'Não foi possível obter sua localização. Libere o acesso no navegador e atualize a página.',
+      });
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (posicao) =>
+        this.setState({
+          latitude: posicao.coords.latitude,
+          longitude: posicao.coords.longitude,
+          horarioLocalizacao: Date.now(),
+          mensagemDeErro: null,
+        }),
+      (erro) => {
+        console.log(`Erro: ${erro}`);
+        this.setState({
+          mensagemDeErro:
+            'Não foi possível obter sua localização. Libere o acesso no navegador e atualize a página.',
+        });
+      },
+    );
+  };
 
   onBuscaRealizada = async (categoria, raio) => {
     const { longitude, latitude } = this.state;
@@ -34,77 +59,107 @@ export default class MeuPonto extends Component {
       raioBuscado: raio,
     });
 
+    try {
+      const resposta = await geoapifyClient.get('/places', {
+        params: {
+          categories: categoria,
+          filter: `circle:${longitude},${latitude},${raio}`,
+          bias: `proximity:${longitude},${latitude}`,
+          limit: 20,
+        },
+      });
+      this.setState({
+        lugares: resposta.data.features,
+        buscando: false,
+      });
+    } catch (erro) {
+      console.error(erro);
+      this.setState({
+        buscando: false,
+        erroBusca: 'Não foi possível consultar os lugares. Tente novamente.',
+      });
+    }
+  };
 
   render() {
-    const { latitude, longitude, horarioLocalizacao, onAtualizar } =
-      this.props;
-
-    const segundos = Math.max(
-      0,
-      Math.floor((this.state.agora - horarioLocalizacao) / 1000),
-    );
-
-    const marcador = `lonlat:${longitude},${latitude};color:%23d32f2f;size:48`;
-    const url = `https://maps.geoapify.com/v1/staticmap?style=osm-bright&width=600&height=300&center=lonlat:${longitude},${latitude}&zoom=16&marker=${marcador}&apiKey=${GEOAPIFY_KEY}`;
+    const {
+      latitude,
+      longitude,
+      horarioLocalizacao,
+      mensagemDeErro,
+      lugares,
+      buscando,
+      erroBusca,
+      raioBuscado,
+    } = this.state;
+    const estiloSubtitulo = {
+      color: '#626a78',
+      textAlign: 'center',
+    };
+    const obterAno = () => new Date().getFullYear();
 
     return (
-      <>
-        <img className="mapa" src={url} alt="Mapa da sua localização" />
+      <main className="pagina">
+        <header>
+          <h1 className="titulo">
+            <i className="pi pi-map-marker" /> RolêRadar
+          </h1>
+          <p style={estiloSubtitulo}>Descubra o que existe perto de você</p>
+          <Creditos />
+        </header>
 
-        <p>
-          Latitude: {latitude.toFixed(4)} | Longitude: {longitude.toFixed(4)}
-        </p>
+        {mensagemDeErro ? (
+          <p className="erro">{mensagemDeErro}</p>
+        ) : latitude === null ? (
+          <Loading mensagem="Aguardando permissão de localização..." />
+        ) : (
+          <div className="grid">
+            <div className="col-12 md:col-6">
+              <Cartao cabecalho="Você está aqui">
+                <MeuPonto
+                  latitude={latitude}
+                  longitude={longitude}
+                  horarioLocalizacao={horarioLocalizacao}
+                  onAtualizar={this.obterLocalizacao}
+                />
+              </Cartao>
+              <Cartao cabecalho="O que você procura?">
+                <Busca onBuscaRealizada={this.onBuscaRealizada} />
+              </Cartao>
+            </div>
 
-        <p>Hemisfério {latitude < 0 ? 'Sul' : 'Norte'}</p>
-        <p>Localização obtida há {segundos} s</p>
+            <div className="col-12 md:col-6">
+              {buscando ? (
+                <Loading mensagem="Procurando lugares..." />
+              ) : erroBusca ? (
+                <p className="erro">{erroBusca}</p>
+              ) : lugares === null ? null : lugares.length === 0 ? (
+                <p>Nenhum lugar encontrado. Tente aumentar o raio.</p>
+              ) : (
+                <>
+                  <strong>
+                    {lugares.length}{' '}
+                    {lugares.length === 1
+                      ? 'lugar encontrado'
+                      : 'lugares encontrados'}{' '}
+                    em até {raioBuscado} m
+                  </strong>
+                  <Cartao cabecalho="Radar">
+                    <MapaRadar
+                      latitude={latitude}
+                      longitude={longitude}
+                      lugares={lugares}
+                    />
+                  </Cartao>
+                  <ListaLugares lugares={lugares} />
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
-        <Button
-          className="botao-atualizar"
-          variant="outlined"
-          onClick={onAtualizar}
-        >
-          <i className="pi pi-refresh" />
-          Atualizar localização
-        </Button>
-      </>
+        <footer>RolêRadar © {obterAno()}</footer>
+      </main>
     );
   }
-}
-
-
-function obterAno() {
-  return new Date().getFullYear();
-}
-
-function Cabecalho() {
-  return (
-    <header>
-      <h1 className="titulo">
-        <i className="pi pi-map-marker" /> RolêRadar
-      </h1>
-      <p style={estiloSubtitulo}>
-        Descubra o que existe perto de você
-      </p>
-      <Creditos />
-    </header>
-  );
-}
-
-function Rodape() {
-  return <footer>RolêRadar © {obterAno()}</footer>;
-}
-
-
-export default function App() {
-  return (
-    <>
-      <Cabecalho />
-      <main>
-        <p>Descubra os rolês perto de você.</p>
-      </main>
-      
-      <Rodape />
-      <Cartao />
-    </>
-  );
 }
