@@ -26,6 +26,15 @@ export default class MeuPonto extends Component {
     clearInterval(this.timer);
   }
 
+  onBuscaRealizada = async (categoria, raio) => {
+    const { longitude, latitude } = this.state;
+    this.setState({
+      buscando: true,
+      erroBusca: null,
+      raioBuscado: raio,
+    });
+
+
   render() {
     const { latitude, longitude, horarioLocalizacao, onAtualizar } =
       this.props;
