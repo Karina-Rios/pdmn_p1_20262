@@ -1,10 +1,33 @@
 import Cartao from './Cartao';
 import Creditos from './Creditos';
+import Loading from './Loading';
 
-const estiloSubtitulo = {
-  color: '#626a78',
-  textAlign: 'center',
-};
+export default class App extends Component {
+    state = {
+        latitude: null,
+        longitude: null,
+        horarioLocalizacao: null,
+        mensagemDeErro: null,
+        lugares: null,
+        buscando: false,
+        erroBusca: null,
+        raioBuscado: null,
+    };
+
+    componentDidMount() {
+        console.log('componentDidMount')
+        this.obterLocalizacao();
+    }
+
+    obterLocalizacao = () => {
+        if (!navigator.geolocation) {
+        return this.setState({
+            mensagemDeErro:
+            'Não foi possível obter sua localização. Libere o acesso no navegador e atualize a página.',
+        });
+    }
+}
+
 
 function obterAno() {
   return new Date().getFullYear();
